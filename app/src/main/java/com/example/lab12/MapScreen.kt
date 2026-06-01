@@ -38,21 +38,57 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import com.google.android.gms.location.LocationServices
+
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 @Composable
 fun MapScreen() {
-   val ArequipaLocation = LatLng(-16.4040102, -71.559611) // Arequipa, Perú
+   val context = LocalContext.current
+   val scope = rememberCoroutineScope()
+   val arequipaLocation = LatLng(-16.4040102, -71.559611) // Corregido: minúscula
+   
    val cameraPositionState = rememberCameraPositionState {
-       position = CameraPosition.fromLatLngZoom(ArequipaLocation, 12f)
+       position = CameraPosition.fromLatLngZoom(arequipaLocation, 12f)
    }
 
    var mapType by remember { mutableStateOf(MapType.NORMAL) }
    var showMenu by remember { mutableStateOf(false) }
+   
+   // Estado para los permisos de ubicación
+   var hasLocationPermission by remember {
+       mutableStateOf(
+           ContextCompat.checkSelfPermission(
+               context,
+               Manifest.permission.ACCESS_FINE_LOCATION
+           ) == PackageManager.PERMISSION_GRANTED
+       )
+   }
 
+   // Launcher para solicitar permisos
+   val permissionLauncher = rememberLauncherForActivityResult(
+       contract = ActivityResultContracts.RequestPermission()
+   ) { isGranted ->
+       hasLocationPermission = isGranted
+   }
+
+   // Solicitar permiso al iniciar si no se tiene
    LaunchedEffect(Unit) {
+       if (!hasLocationPermission) {
+           permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+       }
+       
        cameraPositionState.animate(
            update = CameraUpdateFactory.newLatLngZoom(LatLng(-16.2520984,-71.6836503), 12f), // Mover a Yura
            durationMs = 3000
@@ -99,11 +135,14 @@ fun MapScreen() {
        GoogleMap(
            modifier = Modifier.fillMaxSize(),
            cameraPositionState = cameraPositionState,
-           properties = MapProperties(mapType = mapType)
+           properties = MapProperties(
+               mapType = mapType,
+               isMyLocationEnabled = hasLocationPermission // Activar capa de ubicación si hay permiso
+           )
        ) {
            // Añadir marcador en Arequipa, Perú (Personalizado a color azul)
            Marker(
-               state = rememberMarkerState(position = ArequipaLocation),
+               state = rememberMarkerState(position = arequipaLocation),
                title = "Arequipa, Perú",
                icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)
            )
@@ -203,10 +242,49 @@ fun MapScreen() {
            ), color = Color.Blue, width = 15f)
        }
 
+       // Botón para mi ubicación (Abajo a la derecha)
+       Surface(
+           modifier = Modifier
+               .padding(bottom = 32.dp, end = 16.dp)
+               .align(Alignment.BottomEnd),
+           shape = RoundedCornerShape(50),
+           color = ComposeColor.White.copy(alpha = 0.9f),
+           shadowElevation = 6.dp
+       ) {
+           IconButton(onClick = {
+               if (hasLocationPermission) {
+                   val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+                   try {
+                       fusedLocationClient.lastLocation.addOnSuccessListener { location: android.location.Location? ->
+                           location?.let {
+                               val userLatLng = LatLng(it.latitude, it.longitude)
+                               scope.launch {
+                                   cameraPositionState.animate(
+                                       update = CameraUpdateFactory.newLatLngZoom(userLatLng, 15f),
+                                       durationMs = 1500
+                                   )
+                               }
+                           }
+                       }
+                   } catch (e: SecurityException) {
+                       // Manejar excepción de seguridad
+                   }
+               } else {
+                   permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+               }
+           }) {
+               Icon(
+                   imageVector = Icons.Default.MyLocation,
+                   contentDescription = "Mi ubicación",
+                   tint = ComposeColor.Blue
+               )
+           }
+       }
+
        // Menú Sandwich (Tipo Sandwich/Capas)
        Column(
            modifier = Modifier
-               .padding(top = 64.dp, start = 16.dp) // Más abajo y a la izquierda
+               .padding(top = 64.dp, start = 16.dp)
                .align(Alignment.TopStart),
            horizontalAlignment = Alignment.Start
        ) {
@@ -252,7 +330,7 @@ fun MapScreen() {
                            OutlinedButton(
                                onClick = { 
                                    mapType = type
-                                   showMenu = false // Cerrar al elegir
+                                   showMenu = false
                                },
                                modifier = Modifier.fillMaxWidth(),
                                shape = RoundedCornerShape(8.dp),
