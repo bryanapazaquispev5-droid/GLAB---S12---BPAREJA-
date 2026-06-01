@@ -16,6 +16,31 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.maps.android.compose.Polygon
 import com.google.maps.android.compose.Polyline
 import androidx.compose.ui.graphics.Color
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapType
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
+import androidx.compose.ui.unit.dp
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Layers
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 
 @Composable
 fun MapScreen() {
@@ -23,6 +48,9 @@ fun MapScreen() {
    val cameraPositionState = rememberCameraPositionState {
        position = CameraPosition.fromLatLngZoom(ArequipaLocation, 12f)
    }
+
+   var mapType by remember { mutableStateOf(MapType.NORMAL) }
+   var showMenu by remember { mutableStateOf(false) }
 
    LaunchedEffect(Unit) {
        cameraPositionState.animate(
@@ -70,7 +98,8 @@ fun MapScreen() {
        // Añadir GoogleMap al layout
        GoogleMap(
            modifier = Modifier.fillMaxSize(),
-           cameraPositionState = cameraPositionState
+           cameraPositionState = cameraPositionState,
+           properties = MapProperties(mapType = mapType)
        ) {
            // Añadir marcador en Arequipa, Perú (Personalizado a color azul)
            Marker(
@@ -172,6 +201,73 @@ fun MapScreen() {
                LatLng(pLat - letterHeight/2, pLng + letterWidth),
                LatLng(pLat - letterHeight/2, pLng)
            ), color = Color.Blue, width = 15f)
+       }
+
+       // Menú Sandwich (Tipo Sandwich/Capas)
+       Column(
+           modifier = Modifier
+               .padding(top = 64.dp, start = 16.dp) // Más abajo y a la izquierda
+               .align(Alignment.TopStart),
+           horizontalAlignment = Alignment.Start
+       ) {
+           Surface(
+               shape = RoundedCornerShape(50),
+               color = ComposeColor.White.copy(alpha = 0.9f),
+               shadowElevation = 4.dp
+           ) {
+               IconButton(onClick = { showMenu = !showMenu }) {
+                   Icon(
+                       imageVector = Icons.Default.Layers,
+                       contentDescription = "Menu capas",
+                       tint = ComposeColor.DarkGray
+                   )
+               }
+           }
+
+           Spacer(modifier = Modifier.height(8.dp))
+
+           AnimatedVisibility(
+               visible = showMenu,
+               enter = fadeIn(),
+               exit = fadeOut()
+           ) {
+               Surface(
+                   modifier = Modifier.fillMaxWidth(0.4f),
+                   color = ComposeColor.White.copy(alpha = 0.9f),
+                   shape = RoundedCornerShape(16.dp),
+                   shadowElevation = 8.dp
+               ) {
+                   Column(
+                       modifier = Modifier.padding(12.dp),
+                       horizontalAlignment = Alignment.CenterHorizontally
+                   ) {
+                       val types = listOf(
+                           "Normal" to MapType.NORMAL,
+                           "Satélite" to MapType.SATELLITE,
+                           "Híbrido" to MapType.HYBRID,
+                           "Terreno" to MapType.TERRAIN
+                       )
+
+                       types.forEach { (label, type) ->
+                           OutlinedButton(
+                               onClick = { 
+                                   mapType = type
+                                   showMenu = false // Cerrar al elegir
+                               },
+                               modifier = Modifier.fillMaxWidth(),
+                               shape = RoundedCornerShape(8.dp),
+                               border = if (mapType == type) 
+                                   androidx.compose.foundation.BorderStroke(2.dp, ComposeColor.Blue) 
+                               else 
+                                   androidx.compose.foundation.BorderStroke(1.dp, ComposeColor.Gray)
+                           ) {
+                               Text(text = label, style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+                           }
+                           Spacer(modifier = Modifier.height(4.dp))
+                       }
+                   }
+               }
+           }
        }
    }
 }
