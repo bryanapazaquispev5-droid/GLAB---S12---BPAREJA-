@@ -10,6 +10,7 @@ import com.google.maps.android.compose.rememberMarkerState
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.Marker
 import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 
 @Composable
 fun MapScreen() {
@@ -18,17 +19,33 @@ fun MapScreen() {
        position = CameraPosition.fromLatLngZoom(ArequipaLocation, 12f)
    }
 
+   val locations = listOf(
+       LatLng(-16.433415,-71.5442652), // JLByR
+       LatLng(-16.4205151,-71.4945209), // Paucarpata
+       LatLng(-16.3524187,-71.5675994) // Zamacola
+   )
+
    Box(modifier = Modifier.fillMaxSize()) {
        // Añadir GoogleMap al layout
        GoogleMap(
            modifier = Modifier.fillMaxSize(),
            cameraPositionState = cameraPositionState
        ) {
-           // Añadir marcador en Arequipa, Perú
+           // Añadir marcador en Arequipa, Perú (Personalizado a color azul)
            Marker(
                state = rememberMarkerState(position = ArequipaLocation),
-               title = "Arequipa, Perú"
+               title = "Arequipa, Perú",
+               icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)
            )
+
+           // Añadir varios marcadores
+           locations.forEach { location ->
+               Marker(
+                   state = rememberMarkerState(position = location),
+                   title = "Ubicación",
+                   snippet = "Punto de interés"
+               )
+           }
        }
    }
 }
